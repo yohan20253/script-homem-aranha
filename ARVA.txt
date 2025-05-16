@@ -1,0 +1,86 @@
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+local UIS = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+local swinging = false
+local rope
+local attachment0
+local attachment1
+local beam
+
+local function createWeb(targetPos)
+	if rope then rope:Destroy() end
+	if attachment0 then attachment0:Destroy() end
+	if attachment1 then attachment1:Destroy() end
+	if beam then beam:Destroy() end
+
+	-- Criar attachments
+	attachment0 = Instance.new("Attachment", humanoidRootPart)
+
+	local part = Instance.new("Part", workspace)
+	part.Anchored = true
+	part.CanCollide = false
+	part.Size = Vector3.new(1,1,1)
+	part.CFrame = CFrame.new(targetPos)
+	part.Transparency = 1
+	attachment1 = Instance.new("Attachment", part)
+
+	-- Criar rope constraint
+	rope = Instance.new("RopeConstraint", humanoidRootPart)
+	rope.Attachment0 = attachment0
+	rope.Attachment1 = attachment1
+	rope.Length = (humanoidRootPart.Position - targetPos).Magnitude
+	rope.Visible = false
+	rope.Restitution = 0.1
+	rope.Stiffness = 100
+	rope.WinchEnabled = true
+	rope.WinchSpeed = 50
+
+	-- Beam para teia visível
+	beam = Instance.new("Beam", humanoidRootPart)
+	beam.Attachment0 = attachment0
+	beam.Attachment1 = attachment1
+	beam.Width0 = 0.1
+	beam.Width1 = 0.1
+	beam.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	beam.Transparency = NumberSequence.new(0)
+	beam.FaceCamera = true
+
+	swinging = true
+end
+
+local function stopWeb()
+	swinging = false
+	if rope then rope:Destroy() rope = nil end
+	if attachment0 then attachment0:Destroy() attachment0 = nil end
+	if attachment1 and attachment1.Parent then attachment1.Parent:Destroy() attachment1 = nil end
+	if beam then beam:Destroy() beam = nil end
+end
+
+-- Clique esquerdo: lançar teia
+mouse.Button1Down:Connect(function()
+	if not swinging then
+		local target = mouse.Hit.Position
+		createWeb(target)
+	end
+end)
+
+-- Tecla Q: soltar teia
+UIS.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.Q then
+		stopWeb()
+	end
+end)
+
+-- Movimento estilo balançar
+runService.RenderStepped:Connect(function()
+	if swinging and rope and rope.WinchEnabled then
+		-- Adiciona impulso para frente
+		local lookVector = workspace.CurrentCamera.CFrame.LookVector
+		humanoidRootPart.Velocity = humanoidRootPart.Velocity + lookVector * 2
+	end
+end)
